@@ -1,11 +1,14 @@
-/* 
+/*
   aREST Library for Arduino
   See the README file for more details.
- 
-  Written in 2014 by Marco Schwartz under a GPL license. 
-  Version 1.9.10
+
+  Written in 2014 by Marco Schwartz under a GPL license.
+  Version 2.0.2
   Changelog:
-  
+
+  Version 2.0.2: Added cloud access support for the Ethernet library
+  Version 2.0.1: Added beta support for cloud access via cloud.arest.io
+  Version 2.0.0: Added beta support for MQTT communications
   Version 1.9.10: Added support for floats & Strings for Uno (without the CC3000 chip)
   Version 1.9.8: Added support for ESP8266 chip
   Version 1.9.7: Added support for Arduino 1.6.2
@@ -24,17 +27,17 @@
   Version 1.7.1: Added possibility to change number of exposed variables & functions
   Version 1.7: Added compatibility with the Arduino Due & Teensy 3.x
   Version 1.6: Added compatibility with the Arduino Yun
-  
+
   Version 1.5: Size reduction, and added compatibility with Adafruit BLE
-  
+
   Version 1.4: Added authentification with API key
-  
+
   Version 1.3: Added support for the Ethernet shield
-  
+
   Version 1.2: Added support of Serial communications
-  
+
   Version 1.1: Added variables & functions support
-  
+
   Version 1.0: First working version of the library
 */
 
@@ -61,7 +64,7 @@
 #elif defined(ADAFRUIT_CC3000_H)
 #define NUMBER_ANALOG_PINS 6
 #define NUMBER_DIGITAL_PINS 14
-#define OUTPUT_BUFFER_SIZE 275  
+#define OUTPUT_BUFFER_SIZE 275
 #else
 #define NUMBER_ANALOG_PINS 6
 #define NUMBER_DIGITAL_PINS 14
@@ -115,21 +118,39 @@ class aREST {
 public:
 
 aREST() {
-  
+
   command = 'u';
   pin_selected = false;
- 
+
   status_led_pin = 255;
   state = 'u';
 
 }
 
+#if defined(PubSubClient_h)
+aREST(PubSubClient& client) {
+
+  command = 'u';
+  pin_selected = false;
+
+  status_led_pin = 255;
+  state = 'u';
+
+  client.setServer(mqtt_server, 1883);
+
+}
+char* get_topic() {
+  return out_topic;
+}
+
+#endif
+
 // Set status LED
 void set_status_led(uint8_t pin){
-  
+
   // Set variables
   status_led_pin = pin;
-  
+
   // Set pin as output
   pinMode(status_led_pin,OUTPUT);
 }
@@ -167,54 +188,54 @@ void reset_status() {
 // Handle request with the Adafruit CC3000 WiFi library
 #ifdef ADAFRUIT_CC3000_H
 void handle(Adafruit_CC3000_ClientRef& client) {
-  
+
   if (client.available()) {
 
     // Handle request
     handle_proto(client,true,0);
-        
+
     // Answer
     sendBuffer(client,32,20);
-    client.stop();  
+    client.stop();
 
     // Reset variables for the next command
     reset_status();
-  } 
+  }
 }
 
 // Handle request with the Arduino Yun
-#elif defined(_YUN_CLIENT_H_) 
+#elif defined(_YUN_CLIENT_H_)
 void handle(YunClient& client) {
-  
+
   if (client.available()) {
 
     // Handle request
     handle_proto(client,false,0);
-    
+
     // Answer
     sendBuffer(client,25,10);
     client.stop();
-   
+
     // Reset variables for the next command
     reset_status();
-  } 
+  }
 }
 
 // Handle request with the Adafruit BLE board
 #elif defined(_ADAFRUIT_BLE_UART_H_)
 void handle(Adafruit_BLE_UART& serial) {
-  
+
   if (serial.available()) {
 
     // Handle request
     handle_proto(serial,false,0);
-    
+
     // Answer
     sendBuffer(serial,100,1);
 
     // Reset variables for the next command
     reset_status();
-  } 
+  }
 }
 
 // Handle request for the Arduino Ethernet shield
@@ -228,10 +249,10 @@ void handle(EthernetClient& client){
 
     // Answer
     sendBuffer(client,50,0);
-    client.stop();  
-   
+    client.stop();
+
     // Reset variables for the next command
-    reset_status();   
+    reset_status();
   }
 }
 
@@ -248,10 +269,10 @@ void handle(WiFiClient& client){
 
     // Answer
     sendBuffer(client,0,0);
-    client.stop();  
-   
+    client.stop();
+
     // Reset variables for the next command
-    reset_status();   
+    reset_status();
   }
 }
 
@@ -268,10 +289,10 @@ void handle(WiFiClient& client){
 
     // Answer
     sendBuffer(client,50,1);
-    client.stop();  
-   
+    client.stop();
+
     // Reset variables for the next command
-    reset_status();   
+    reset_status();
   }
 }
 
@@ -288,7 +309,7 @@ void handle(usb_serial_class& serial){
     sendBuffer(serial,25,1);
 
     // Reset variables for the next command
-    reset_status();     
+    reset_status();
   }
 }
 
@@ -305,7 +326,7 @@ void handle(Serial_& serial){
     sendBuffer(serial,25,1);
 
     // Reset variables for the next command
-    reset_status();     
+    reset_status();
   }
 }
 
@@ -322,7 +343,7 @@ void handle(HardwareSerial& serial){
     sendBuffer(serial,25,1);
 
     // Reset variables for the next command
-    reset_status();     
+    reset_status();
   }
 }
 #endif
@@ -333,7 +354,7 @@ void handle(char * string) {
   handle_proto(string);
 
   // Reset variables for the next command
-  reset_status();     
+  reset_status();
 }
 
 void handle_proto(char * string) {
@@ -345,7 +366,7 @@ void handle_proto(char * string) {
 
     // Process data
     process(c);
-    
+
   }
 
   // Send command
@@ -353,12 +374,12 @@ void handle_proto(char * string) {
 }
 
 template <typename T>
-void handle_proto(T& serial, bool headers, uint8_t read_delay) 
+void handle_proto(T& serial, bool headers, uint8_t read_delay)
 {
 
   // Check if there is data available to read
   while (serial.available()) {
-       
+
     // Get the server answer
     char c = serial.read();
     delay(read_delay);
@@ -367,12 +388,81 @@ void handle_proto(T& serial, bool headers, uint8_t read_delay)
 
     // Process data
     process(c);
-    
+
    }
 
    // Send command
-   send_command(headers);  
+   send_command(headers);
 }
+
+#if defined(PubSubClient_h)
+
+// Process callback
+void handle_callback(PubSubClient& client, char* topic, byte* payload, unsigned int length) {
+
+  // Process received message
+  int i;
+  char mqtt_msg[100];
+  for(i = 0; i < length; i++) {
+    mqtt_msg[i] = payload[i];
+  }
+  mqtt_msg[i] = '\0';
+
+  String msgString = String(mqtt_msg);
+
+  if (DEBUG_MODE) {
+    Serial.print("Received message via MQTT: ");
+    Serial.println(msgString);
+  }
+
+  String modified_message = String(msgString) + " /";
+  char char_message[100];
+  modified_message.toCharArray(char_message, 100);
+
+  // Handle command with aREST
+  handle(char_message);
+
+  // Read answer
+  char * answer = getBuffer();
+
+  // Send response
+  if (DEBUG_MODE) {
+    Serial.print("Sending message via MQTT: ");
+    Serial.println(answer);
+  }
+  client.publish(out_topic, answer);
+  resetBuffer();
+}
+
+// Handle request on the Serial port
+void loop(PubSubClient& client){
+
+  // Connect to cloud
+  if (!client.connected()) {
+    reconnect(client);
+  }
+  client.loop();
+
+}
+
+void reconnect(PubSubClient& client) {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print(F("Attempting MQTT connection..."));
+    // Attempt to connect
+    if (client.connect(id)) {
+      Serial.println(F("Connected to aREST.io"));
+      client.subscribe(in_topic);
+    } else {
+      Serial.print(F("failed, rc="));
+      Serial.print(client.state());
+      Serial.println(F(" try again in 5 seconds"));
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+#endif
 
 void process(char c){
 
@@ -381,40 +471,40 @@ void process(char c){
 
       if (DEBUG_MODE) {Serial.println(answer);}
 
-      // If the command is mode, and the pin is already selected    
+      // If the command is mode, and the pin is already selected
       if (command == 'm' && pin_selected && state == 'u') {
-        
+
         // Get state
         state = answer[0];
-            
+
      }
-     
-     // If a digital command has been received, process the data accordingly     
+
+     // If a digital command has been received, process the data accordingly
      if (command == 'd' && pin_selected && state == 'u') {
-                
+
        // If it's a read command, read from the pin and send data back
        if (answer[0] == 'r') {state = 'r';}
-       
-       // If not, get value we want to apply to the pin        
+
+       // If not, get value we want to apply to the pin
        else {value = answer.toInt(); state = 'w';}
      }
-     
-     // If analog command has been selected, process the data accordingly     
+
+     // If analog command has been selected, process the data accordingly
      if (command == 'a' && pin_selected && state == 'u') {
-                
+
        // If it's a read, read from the correct pin
        if (answer[0] == 'r') {state = 'r';}
-       
-       // Else, write analog value        
+
+       // Else, write analog value
        else {value = answer.toInt(); state = 'w';}
      }
-     
-     // If the command is already selected, get the pin     
+
+     // If the command is already selected, get the pin
      if (command != 'u' && pin_selected == false) {
-       
+
        // Get pin
        if (answer[0] == 'A') {
-         pin = 14 + answer[1] - '0';  
+         pin = 14 + answer[1] - '0';
        }
        else {
          pin = answer.toInt();
@@ -426,10 +516,10 @@ void process(char c){
        pin_selected = true;
 
        // Nothing more ?
-       if ((answer[1] != '/' && answer[2] != '/') 
+       if ((answer[1] != '/' && answer[2] != '/')
         || (answer[1] == ' ' && answer[2] == '/')
         || (answer[2] == ' ' && answer[3] == '/')) {
-     
+
         // Nothing more & digital ?
         if (command == 'd') {
 
@@ -445,30 +535,30 @@ void process(char c){
 
          // Read all analog ?
          if (answer[0] == 'a') {state = 'a';}
-        
+
          // Save state & end there
          else {state = 'r';}
        }
-     }  
+     }
 
    }
-     
-     // Digital command received ?    
+
+     // Digital command received ?
      if (answer.startsWith("digital")) {command = 'd';}
-          
+
      // Mode command received ?
      if (answer.startsWith("mode")) {command = 'm';}
-          
+
      // Analog command received ?
      if (answer.startsWith("analog")) {command = 'a';}
 
      // Variable or function request received ?
      if (command == 'u') {
-       
+
        // Check if variable name is in int array
        for (uint8_t i = 0; i < variables_index; i++){
          if(answer.startsWith(int_variables_names[i])) {
-           
+
            // End here
            pin_selected = true;
            state = 'x';
@@ -483,7 +573,7 @@ void process(char c){
        #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
        for (uint8_t i = 0; i < float_variables_index; i++){
          if(answer.startsWith(float_variables_names[i])) {
-           
+
            // End here
            pin_selected = true;
            state = 'x';
@@ -499,7 +589,7 @@ void process(char c){
        #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
        for (uint8_t i = 0; i < string_variables_index; i++){
          if(answer.startsWith(string_variables_names[i])) {
-           
+
            // End here
            pin_selected = true;
            state = 'x';
@@ -514,7 +604,7 @@ void process(char c){
        // Check if function name is in array
        for (uint8_t i = 0; i < functions_index; i++){
          if(answer.startsWith(functions_names[i])) {
-           
+
            // End here
            pin_selected = true;
            state = 'x';
@@ -561,7 +651,7 @@ void process(char c){
        // if (answer.startsWith("POST")) {method = "POST";}
        // if (answer.startsWith("PUT")) {method = "PUT";}
        // if (answer.startsWith("DELETE")) {method = "DELETE";}
-       
+
        // if (DEBUG_MODE && method != "") {
        //  Serial.print("Selected method: ");
        //  Serial.println(method);
@@ -591,18 +681,18 @@ bool send_command(bool headers) {
    // Mode selected
    if (command == 'm' && (enable_byte & (AREST_ENB_DIGITAL | AREST_ENB_ANALOG))){
 
-     // Send feedback to client 
+     // Send feedback to client
      if (!LIGHTWEIGHT){
        addToBuffer(F("{\"message\": \"Pin D"));
-       addToBuffer(pin); 
-     } 
-     
+       addToBuffer(pin);
+     }
+
      // Input
      if (state == 'i'){
-      
-      // Set pin to Input     
+
+      // Set pin to Input
       pinMode(pin,INPUT);
-          
+
       // Send feedback to client
       if (!LIGHTWEIGHT){addToBuffer(F(" set to input\", "));}
      }
@@ -610,9 +700,9 @@ bool send_command(bool headers) {
      // Output
      if (state == 'o'){
 
-       // Set to Output  
+       // Set to Output
        pinMode(pin,OUTPUT);
-          
+
        // Send feedback to client
        if (!LIGHTWEIGHT){addToBuffer(F(" set to output\", "));}
      }
@@ -634,16 +724,16 @@ bool send_command(bool headers) {
         addToBuffer(F(", "));
       }
      }
-     
+
      #if !defined(__AVR_ATmega32U4__) || !defined(ADAFRUIT_CC3000_H)
      if (state == 'a' && (enable_byte & AREST_ENB_DIGITAL_READ)) {
        if (!LIGHTWEIGHT) {addToBuffer(F("{"));}
-       
-       for (uint8_t i = 0; i < NUMBER_DIGITAL_PINS; i++) {       
-         
+
+       for (uint8_t i = 0; i < NUMBER_DIGITAL_PINS; i++) {
+
          // Read analog value
          value = digitalRead(i);
-      
+
          // Send feedback to client
          if (LIGHTWEIGHT){
            addToBuffer(value);
@@ -655,14 +745,14 @@ bool send_command(bool headers) {
            addToBuffer(F("\": "));
            addToBuffer(value);
            addToBuffer(F(", "));
-         } 
+         }
      }
     }
     #endif
 
      if (state == 'w' && (enable_byte & AREST_ENB_DIGITAL_WRITE)) {
 
-       // Apply on the pin      
+       // Apply on the pin
        digitalWrite(pin,value);
 
        // Send feedback to client
@@ -679,10 +769,9 @@ bool send_command(bool headers) {
    // Analog selected
    if (command == 'a') {
      if (state == 'r' && (enable_byte & AREST_ENB_ANALOG_READ)){
-       
        // Read analog value
        value = analogRead(pin);
-      
+
        // Send feedback to client
        if (LIGHTWEIGHT){addToBuffer(value);}
        else {
@@ -694,12 +783,12 @@ bool send_command(bool headers) {
      #if !defined(__AVR_ATmega32U4__)
      if (state == 'a' && (enable_byte & AREST_ENB_ANALOG_READ)) {
        if (!LIGHTWEIGHT) {addToBuffer(F("{"));}
-       
-       for (uint8_t i = 0; i < NUMBER_ANALOG_PINS; i++) {       
-         
+
+       for (uint8_t i = 0; i < NUMBER_ANALOG_PINS; i++) {
+
          // Read analog value
          value = analogRead(i);
-      
+
          // Send feedback to client
          if (LIGHTWEIGHT){
            addToBuffer(value);
@@ -711,7 +800,7 @@ bool send_command(bool headers) {
            addToBuffer(F("\": "));
            addToBuffer(value);
            addToBuffer(F(", "));
-         } 
+         }
      }
    }
    #endif
@@ -731,7 +820,7 @@ bool send_command(bool headers) {
   }
 
   // Variable selected
-  if (command == 'v' && (enable_byte & AREST_ENB_VARIABLE)) {          
+  if (command == 'v' && (enable_byte & AREST_ENB_VARIABLE)) {   
 
        // Send feedback to client
        if (LIGHTWEIGHT){addToBuffer(*int_variables[value]);}
@@ -740,7 +829,7 @@ bool send_command(bool headers) {
         addToBuffer(int_variables_names[value]);
         addToBuffer(F("\": "));
         addToBuffer(*int_variables[value]);
-        addToBuffer(F(", ")); 
+        addToBuffer(F(", "));
        }
   }
 
@@ -755,7 +844,7 @@ bool send_command(bool headers) {
         addToBuffer(float_variables_names[value]);
         addToBuffer(F("\": "));
         addToBuffer(*float_variables[value]);
-        addToBuffer(F(", ")); 
+        addToBuffer(F(", "));
        }
   }
   #endif
@@ -771,7 +860,7 @@ bool send_command(bool headers) {
         addToBuffer(string_variables_names[value]);
         addToBuffer(F("\": \""));
         addToBuffer(*string_variables[value]);
-        addToBuffer(F("\", ")); 
+        addToBuffer(F("\", "));
        }
   }
   #endif
@@ -793,7 +882,7 @@ bool send_command(bool headers) {
     }
   }
 
-  if (command == 'r') {
+  if (command == 'r' || command == 'u') {
     root_answer();
   }
 
@@ -811,7 +900,7 @@ bool send_command(bool headers) {
 
    else {
 
-     if (command != 'r') {
+     if (command != 'r' && command != 'u') {
        addToBuffer(F("\"id\": \""));
        addToBuffer(id);
        addToBuffer(F("\", \"name\": \""));
@@ -824,7 +913,7 @@ bool send_command(bool headers) {
      Serial.print(F("State of buffer at the end: "));
      Serial.println(buffer);
    }
-   
+
    // End here
    return true;
 }
@@ -832,17 +921,21 @@ bool send_command(bool headers) {
 virtual void root_answer() {
 
   #if defined(ADAFRUIT_CC3000_H) || defined(ESP8266) || defined(ethernet_h) || defined(WiFi_h)
-  addToBuffer(F("HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: POST, GET, PUT, OPTIONS\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n"));
+    #if !defined(PubSubClient_h)
+      if (command != 'u') {
+        addToBuffer(F("HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: POST, GET, PUT, OPTIONS\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n"));
+      }
+    #endif
   #endif
 
   if (LIGHTWEIGHT) {addToBuffer(id);}
   else {
-    
+
     // Start
     addToBuffer(F("{\"variables\": {"));
 
     #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
-    
+
     // Int variables
     if (variables_index == 0 && string_variables_index == 0 && float_variables_index == 0){
       addToBuffer(F(" }, "));
@@ -869,7 +962,7 @@ virtual void root_answer() {
           addToBuffer(*string_variables[i]);
           addToBuffer(F("\", "));
         }
-        
+
       }
       if (float_variables_index > 0){
 
@@ -880,7 +973,7 @@ virtual void root_answer() {
           addToBuffer(*float_variables[i]);
           addToBuffer(F(", "));
         }
-        
+
       }
       removeLastBufferChar();
       removeLastBufferChar();
@@ -890,7 +983,7 @@ virtual void root_answer() {
     #else
     // Int variables
     if (variables_index > 0){
-        
+
       for (uint8_t i = 0; i < variables_index-1; i++){
         addToBuffer(F("\""));
         addToBuffer(int_variables_names[i]);
@@ -898,7 +991,7 @@ virtual void root_answer() {
         addToBuffer(*int_variables[i]);
         addToBuffer(F(", "));
       }
-      
+
       // End
       addToBuffer(F("\""));
       addToBuffer(int_variables_names[variables_index-1]);
@@ -908,9 +1001,9 @@ virtual void root_answer() {
     }
     else {
       addToBuffer(F(" }, "));
-    } 
+    }
     #endif
-       
+
   }
 
   // End
@@ -962,11 +1055,24 @@ void function(char * function_name, int (*f)(String)){
 void set_id(char *device_id){
 
   strcpy(id,device_id);
+
+  #if defined(PubSubClient_h)
+  char bufferone[5];
+  strcpy(bufferone, "_in");
+  strcpy(in_topic, id);
+  strcat(in_topic, bufferone);
+
+  char bufferbis[5];
+  strcpy(bufferbis, "_out");
+  strcpy(out_topic, id);
+  strcat(out_topic, bufferbis);
+  #endif
+
 }
 
 // Set device name
 void set_name(char *device_name){
-  
+
   strcpy(name, device_name);
 }
 
@@ -996,9 +1102,9 @@ void addToBuffer(char * toAdd){
     Serial.print(F("Added to buffer: "));
     Serial.println(toAdd);
   }
-  
+
   for (int i = 0; i < strlen(toAdd); i++){
-    buffer[index+i] = toAdd[i];  
+    buffer[index+i] = toAdd[i];
   }
   index = index + strlen(toAdd);
 }
@@ -1011,9 +1117,9 @@ void addToBuffer(String toAdd){
     Serial.print(F("Added to buffer: "));
     Serial.println(toAdd);
   }
-  
+
   for (int i = 0; i < toAdd.length(); i++){
-    buffer[index+i] = toAdd[i];  
+    buffer[index+i] = toAdd[i];
   }
   index = index + toAdd.length();
 }
@@ -1024,7 +1130,7 @@ void addToBuffer(uint16_t toAdd){
 
   char number[10];
   itoa(toAdd,number,10);
-  
+
   addToBuffer(number);
 }
 
@@ -1033,7 +1139,7 @@ void addToBuffer(int toAdd){
 
   char number[10];
   itoa(toAdd,number,10);
-  
+
   addToBuffer(number);
 }
 
@@ -1043,7 +1149,7 @@ void addToBuffer(float toAdd){
 
   char number[10];
   dtostrf(toAdd, 5, 2, number);
-  
+
   addToBuffer(number);
 }
 #endif
@@ -1075,7 +1181,7 @@ void sendBuffer(T& client, uint8_t chunkSize, uint8_t wait_time) {
   if (DEBUG_MODE) {
     Serial.print(F("Buffer size: "));
     Serial.println(index);
-  }  
+  }
 
   // Send all of it
   if (chunkSize == 0) {
@@ -1084,7 +1190,7 @@ void sendBuffer(T& client, uint8_t chunkSize, uint8_t wait_time) {
 
   // Send chunk by chunk
   else {
-    
+
     // Max iteration
     uint8_t max_iteration = (int)(index/chunkSize) + 1;
 
@@ -1110,7 +1216,7 @@ void sendBuffer(T& client, uint8_t chunkSize, uint8_t wait_time) {
       }
     }
   }
-    
+
     // Reset the buffer
     resetBuffer();
 }
@@ -1143,8 +1249,6 @@ private:
   // enable byte
   uint8_t enable_byte = 0xff;
 
-  //char * method;
-
   char name[NAME_SIZE];
   char id[ID_SIZE];
   String arguments;
@@ -1160,6 +1264,16 @@ private:
   uint8_t variables_index;
   int * int_variables[NUMBER_VARIABLES];
   char * int_variables_names[NUMBER_VARIABLES];
+
+  // MQTT client
+  #if defined(PubSubClient_h)
+
+  char in_topic[15];
+  char out_topic[15];
+
+  //const char* mqtt_server = "192.168.0.101";
+  const char* mqtt_server = "45.55.79.41";
+  #endif
 
   // Float variables arrays (Mega & ESP8266 only)
   #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
