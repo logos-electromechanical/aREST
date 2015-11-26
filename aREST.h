@@ -72,6 +72,16 @@
 #define NAME_SIZE 20
 #define ID_SIZE 10
 
+// Enable bit masks
+#define AREST_ENB_DIGITAL_WRITE 	0x01
+#define AREST_ENB_DIGITAL_READ  	0x02
+#define AREST_ENB_DIGITAL			AREST_ENB_DIGITAL_WRITE | AREST_ENB_DIGITAL_READ
+#define AREST_ENB_ANALOG_WRITE		0x04
+#define AREST_ENB_ANALOG_READ		0x08
+#define AREST_ENB_ANALOG			AREST_ENB_ANALOG_WRITE | AREST_ENB_ANALOG_READ
+#define AREST_ENB_VARIABLE			0x10
+#define AREST_ENB_FUNCTION			0x20
+
 // Debug mode
 #ifndef DEBUG_MODE
 #define DEBUG_MODE 0
@@ -579,7 +589,7 @@ bool send_command(bool headers) {
    if (headers && command != 'r') {send_http_headers();}
 
    // Mode selected
-   if (command == 'm'){
+   if (command == 'm' && (enable_byte & (AREST_ENB_DIGITAL | AREST_ENB_ANALOG))){
 
      // Send feedback to client 
      if (!LIGHTWEIGHT){
@@ -611,7 +621,7 @@ bool send_command(bool headers) {
 
    // Digital selected
    if (command == 'd') {
-     if (state == 'r'){
+     if (state == 'r' && (enable_byte & AREST_ENB_DIGITAL_READ)){
 
        // Read from pin
        value = digitalRead(pin);
@@ -626,7 +636,7 @@ bool send_command(bool headers) {
      }
      
      #if !defined(__AVR_ATmega32U4__) || !defined(ADAFRUIT_CC3000_H)
-     if (state == 'a') {
+     if (state == 'a' && (enable_byte & AREST_ENB_DIGITAL_READ)) {
        if (!LIGHTWEIGHT) {addToBuffer(F("{"));}
        
        for (uint8_t i = 0; i < NUMBER_DIGITAL_PINS; i++) {       
@@ -650,7 +660,7 @@ bool send_command(bool headers) {
     }
     #endif
 
-     if (state == 'w') {
+     if (state == 'w' && (enable_byte & AREST_ENB_DIGITAL_WRITE)) {
 
        // Apply on the pin      
        digitalWrite(pin,value);
@@ -668,7 +678,7 @@ bool send_command(bool headers) {
 
    // Analog selected
    if (command == 'a') {
-     if (state == 'r'){
+     if (state == 'r' && (enable_byte & AREST_ENB_ANALOG_READ)){
        
        // Read analog value
        value = analogRead(pin);
@@ -682,7 +692,7 @@ bool send_command(bool headers) {
        }
      }
      #if !defined(__AVR_ATmega32U4__)
-     if (state == 'a') {
+     if (state == 'a' && (enable_byte & AREST_ENB_ANALOG_READ)) {
        if (!LIGHTWEIGHT) {addToBuffer(F("{"));}
        
        for (uint8_t i = 0; i < NUMBER_ANALOG_PINS; i++) {       
@@ -705,7 +715,7 @@ bool send_command(bool headers) {
      }
    }
    #endif
-   if (state == 'w') {
+   if (state == 'w' && (enable_byte & AREST_ENB_ANALOG_WRITE)) {
 
      // Write output value
      analogWrite(pin,value);
@@ -721,7 +731,7 @@ bool send_command(bool headers) {
   }
 
   // Variable selected
-  if (command == 'v') {          
+  if (command == 'v' && (enable_byte & AREST_ENB_VARIABLE)) {          
 
        // Send feedback to client
        if (LIGHTWEIGHT){addToBuffer(*int_variables[value]);}
@@ -736,7 +746,7 @@ bool send_command(bool headers) {
 
   // Float ariable selected (Mega only)
   #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
-  if (command == 'l') {          
+  if (command == 'l' && (enable_byte & AREST_ENB_VARIABLE)) {          
 
        // Send feedback to client
        if (LIGHTWEIGHT){addToBuffer(*float_variables[value]);}
@@ -752,7 +762,7 @@ bool send_command(bool headers) {
 
   // String variable selected (Mega & ESP8266 only)
   #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
-  if (command == 's') {          
+  if (command == 's' && (enable_byte & AREST_ENB_VARIABLE)) {          
 
        // Send feedback to client
        if (LIGHTWEIGHT){addToBuffer(*string_variables[value]);}
@@ -767,7 +777,7 @@ bool send_command(bool headers) {
   #endif
 
   // Function selected
-  if (command == 'f') {
+  if (command == 'f' && (enable_byte & AREST_ENB_FUNCTION)) {
 
     // Execute function
     uint8_t result = functions[value](arguments);
@@ -1113,6 +1123,14 @@ void resetBuffer(){
   memset(&buffer[0], 0, sizeof(buffer));
 }
 
+void setEnable(uint8_t _enable) {
+	enable_byte = _enable;
+	
+}
+
+uint8_t getEnable (void) {
+	return enable_byte;
+}
 
 private:
   String answer;
@@ -1121,6 +1139,9 @@ private:
   char state;
   uint16_t value;
   boolean pin_selected;
+  
+  // enable byte
+  uint8_t enable_byte = 0xff;
 
   //char * method;
 
@@ -1128,7 +1149,7 @@ private:
   char id[ID_SIZE];
   String arguments;
 
-  // Output uffer
+  // Output buffer
   char buffer[OUTPUT_BUFFER_SIZE];
   uint16_t index;
 
