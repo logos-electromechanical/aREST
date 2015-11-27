@@ -357,7 +357,7 @@ void handle(char * string) {
   reset_status();
 }
 
-void handle_proto(char * string) {
+bool handle_proto(char * string) {
   // Check if there is data available to read
   for (int i = 0; i < strlen(string); i++){
 
@@ -370,11 +370,11 @@ void handle_proto(char * string) {
   }
 
   // Send command
-  send_command(false);
+  return send_command(false);
 }
 
 template <typename T>
-void handle_proto(T& serial, bool headers, uint8_t read_delay)
+bool handle_proto(T& serial, bool headers, uint8_t read_delay)
 {
 
   // Check if there is data available to read
@@ -392,7 +392,7 @@ void handle_proto(T& serial, bool headers, uint8_t read_delay)
    }
 
    // Send command
-   send_command(headers);
+   return send_command(headers);
 }
 
 #if defined(PubSubClient_h)
@@ -665,6 +665,8 @@ void process(char c){
 
 bool send_command(bool headers) {
 
+	bool result = false;
+
    if (DEBUG_MODE) {
      Serial.println(F("Sending command"));
      Serial.print(F("Command: "));
@@ -706,6 +708,7 @@ bool send_command(bool headers) {
        // Send feedback to client
        if (!LIGHTWEIGHT){addToBuffer(F(" set to output\", "));}
      }
+	 result = true;
 
    }
 
@@ -723,6 +726,7 @@ bool send_command(bool headers) {
         addToBuffer(value);
         addToBuffer(F(", "));
       }
+	  result = true;
      }
 
      #if !defined(__AVR_ATmega32U4__) || !defined(ADAFRUIT_CC3000_H)
@@ -747,6 +751,7 @@ bool send_command(bool headers) {
            addToBuffer(F(", "));
          }
      }
+	 result = true;
     }
     #endif
 
@@ -763,6 +768,7 @@ bool send_command(bool headers) {
         addToBuffer(value);
         addToBuffer(F("\", "));
        }
+	   result = true;
      }
    }
 
@@ -779,6 +785,7 @@ bool send_command(bool headers) {
         addToBuffer(value);
         addToBuffer(F(", "));
        }
+	   result = true;
      }
      #if !defined(__AVR_ATmega32U4__)
      if (state == 'a' && (enable_byte & AREST_ENB_ANALOG_READ)) {
@@ -802,6 +809,7 @@ bool send_command(bool headers) {
            addToBuffer(F(", "));
          }
      }
+	 result = true;
    }
    #endif
    if (state == 'w' && (enable_byte & AREST_ENB_ANALOG_WRITE)) {
@@ -817,6 +825,7 @@ bool send_command(bool headers) {
      addToBuffer(F("\", "));
 
    }
+   result = true;
   }
 
   // Variable selected
@@ -831,9 +840,10 @@ bool send_command(bool headers) {
         addToBuffer(*int_variables[value]);
         addToBuffer(F(", "));
        }
+	   result = true;
   }
 
-  // Float ariable selected (Mega only)
+  // Float variable selected (Mega only)
   #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
   if (command == 'l' && (enable_byte & AREST_ENB_VARIABLE)) {          
 
@@ -846,6 +856,7 @@ bool send_command(bool headers) {
         addToBuffer(*float_variables[value]);
         addToBuffer(F(", "));
        }
+	   result = true;
   }
   #endif
 
@@ -862,6 +873,7 @@ bool send_command(bool headers) {
         addToBuffer(*string_variables[value]);
         addToBuffer(F("\", "));
        }
+	   result = true;
   }
   #endif
 
@@ -880,10 +892,12 @@ bool send_command(bool headers) {
      //addToBuffer(functions_names[value]);
      //addToBuffer(F(" executed\", "));
     }
+	result = true;
   }
 
   if (command == 'r' || command == 'u') {
     root_answer();
+	result = true;
   }
 
   if (command == 'i') {
@@ -891,6 +905,7 @@ bool send_command(bool headers) {
     else {
       addToBuffer(F("{"));
     }
+	result = true;
   }
 
    // End of message
@@ -915,7 +930,7 @@ bool send_command(bool headers) {
    }
 
    // End here
-   return true;
+   return result;
 }
 
 virtual void root_answer() {
@@ -1024,7 +1039,7 @@ void variable(char * variable_name, int *variable){
 
 // Float variables (Mega & ESP only, or without CC3000)
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
-void variable(char * variable_name, float *variable){
+void variable(char * variable_name, double *variable){
 
   float_variables[float_variables_index] = variable;
   float_variables_names[float_variables_index] = variable_name;
@@ -1278,7 +1293,7 @@ private:
   // Float variables arrays (Mega & ESP8266 only)
   #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
   uint8_t float_variables_index;
-  float * float_variables[NUMBER_VARIABLES];
+  double * float_variables[NUMBER_VARIABLES];
   char * float_variables_names[NUMBER_VARIABLES];
   #endif
 
