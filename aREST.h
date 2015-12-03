@@ -187,174 +187,186 @@ void reset_status() {
 
 // Handle request with the Adafruit CC3000 WiFi library
 #ifdef ADAFRUIT_CC3000_H
-void handle(Adafruit_CC3000_ClientRef& client) {
+bool handle(Adafruit_CC3000_ClientRef& client) {
+	bool result = false;
+	if (client.available()) {
 
-  if (client.available()) {
+		// Handle request
+		result = handle_proto(client,true,0);
 
-    // Handle request
-    handle_proto(client,true,0);
+		// Answer
+		sendBuffer(client,32,20);
+		client.stop();
 
-    // Answer
-    sendBuffer(client,32,20);
-    client.stop();
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 
 // Handle request with the Arduino Yun
 #elif defined(_YUN_CLIENT_H_)
-void handle(YunClient& client) {
+bool handle(YunClient& client) {
+	bool result = false;
+	if (client.available()) {
 
-  if (client.available()) {
+		// Handle request
+		result = handle_proto(client,false,0);
 
-    // Handle request
-    handle_proto(client,false,0);
+		// Answer
+		sendBuffer(client,25,10);
+		client.stop();
 
-    // Answer
-    sendBuffer(client,25,10);
-    client.stop();
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 
 // Handle request with the Adafruit BLE board
 #elif defined(_ADAFRUIT_BLE_UART_H_)
-void handle(Adafruit_BLE_UART& serial) {
+bool handle(Adafruit_BLE_UART& serial) {
+	bool result = false;
+	if (serial.available()) {
 
-  if (serial.available()) {
+		// Handle request
+		result = handle_proto(serial,false,0);
 
-    // Handle request
-    handle_proto(serial,false,0);
+		// Answer
+		sendBuffer(serial,100,1);
 
-    // Answer
-    sendBuffer(serial,100,1);
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 
 // Handle request for the Arduino Ethernet shield
 #elif defined(ethernet_h)
-void handle(EthernetClient& client){
+bool handle(EthernetClient& client){
+	bool result = false;
+	if (client.available()) {
 
-  if (client.available()) {
+		// Handle request
+		result = handle_proto(client,true,0);
 
-    // Handle request
-    handle_proto(client,true,0);
+		// Answer
+		sendBuffer(client,50,0);
+		client.stop();
 
-    // Answer
-    sendBuffer(client,50,0);
-    client.stop();
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 
 // Handle request for the ESP8266 chip
 #elif defined(ESP8266)
-void handle(WiFiClient& client){
+bool handle(WiFiClient& client){
+	bool result = false;
+	if (client.available()) {
 
-  if (client.available()) {
+		if (DEBUG_MODE) {Serial.println("Request received");}
 
-    if (DEBUG_MODE) {Serial.println("Request received");}
+		// Handle request
+		result = handle_proto(client,true,0);
 
-    // Handle request
-    handle_proto(client,true,0);
+		// Answer
+		sendBuffer(client,0,0);
+		client.stop();
 
-    // Answer
-    sendBuffer(client,0,0);
-    client.stop();
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 
 // Handle request for the Arduino WiFi shield
 #elif defined(WiFi_h)
-void handle(WiFiClient& client){
+bool handle(WiFiClient& client){
+	bool result = false;
+	if (client.available()) {
 
-  if (client.available()) {
+		if (DEBUG_MODE) {Serial.println("Request received");}
 
-    if (DEBUG_MODE) {Serial.println("Request received");}
+		// Handle request
+		result = handle_proto(client,true,0);
 
-    // Handle request
-    handle_proto(client,true,0);
+		// Answer
+		sendBuffer(client,50,1);
+		client.stop();
 
-    // Answer
-    sendBuffer(client,50,1);
-    client.stop();
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 
 #elif defined(CORE_TEENSY)
 // Handle request on the Serial port
-void handle(usb_serial_class& serial){
+bool handle(usb_serial_class& serial){
+	bool result = false;
+	if (serial.available()) {
 
-  if (serial.available()) {
+		// Handle request
+		result = handle_proto(serial,false,1);
 
-    // Handle request
-    handle_proto(serial,false,1);
+		// Answer
+		sendBuffer(serial,25,1);
 
-    // Answer
-    sendBuffer(serial,25,1);
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 
 #elif defined(__AVR_ATmega32U4__)
 // Handle request on the Serial port
-void handle(Serial_& serial){
+bool handle(Serial_& serial){
+	bool result = false;
+	if (serial.available()) {
 
-  if (serial.available()) {
+		// Handle request
+		result = handle_proto(serial,false,1);
 
-    // Handle request
-    handle_proto(serial,false,1);
+		// Answer
+		sendBuffer(serial,25,1);
 
-    // Answer
-    sendBuffer(serial,25,1);
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 
 #else
 // Handle request on the Serial port
-void handle(HardwareSerial& serial){
+bool handle(HardwareSerial& serial){
+	bool result = false;
+	if (serial.available()) {
 
-  if (serial.available()) {
+		// Handle request
+		result = handle_proto(serial,false,1);
 
-    // Handle request
-    handle_proto(serial,false,1);
+		// Answer
+		sendBuffer(serial,25,1);
 
-    // Answer
-    sendBuffer(serial,25,1);
-
-    // Reset variables for the next command
-    reset_status();
-  }
+		// Reset variables for the next command
+		reset_status();
+	}
+	return result;
 }
 #endif
 
-void handle(char * string) {
+bool handle(char * string) {	
 
-  // Process String
-  handle_proto(string);
+	bool result;
+	// Process String
+	result = handle_proto(string);
 
-  // Reset variables for the next command
-  reset_status();
+	// Reset variables for the next command
+	reset_status();
+	
+	return result;
 }
 
 bool handle_proto(char * string) {
@@ -1039,7 +1051,7 @@ void variable(char * variable_name, int *variable){
 
 // Float variables (Mega & ESP only, or without CC3000)
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
-void variable(char * variable_name, double *variable){
+void variable(char * variable_name, float *variable){
 
   float_variables[float_variables_index] = variable;
   float_variables_names[float_variables_index] = variable_name;
@@ -1162,6 +1174,14 @@ void addToBuffer(int toAdd){
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
 void addToBuffer(float toAdd){
 
+  char number[10];
+  dtostrf(toAdd, 5, 2, number);
+
+  addToBuffer(number);
+}
+
+void addToBuffer(double toAdd) {
+	
   char number[10];
   dtostrf(toAdd, 5, 2, number);
 
@@ -1293,7 +1313,7 @@ private:
   // Float variables arrays (Mega & ESP8266 only)
   #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
   uint8_t float_variables_index;
-  double * float_variables[NUMBER_VARIABLES];
+  float * float_variables[NUMBER_VARIABLES];
   char * float_variables_names[NUMBER_VARIABLES];
   #endif
 
