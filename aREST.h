@@ -271,7 +271,7 @@ bool handle(WiFiClient& client){
 	bool result = false;
 	if (client.available()) {
 
-		if (DEBUG_MODE) {Serial.println("Request received");}
+		if (DEBUG_MODE) {Serial.println(F("Request received"));}
 
 		// Handle request
 		result = handle_proto(client,true,0);
@@ -292,7 +292,7 @@ bool handle(WiFiClient& client){
 	bool result = false;
 	if (client.available()) {
 
-		if (DEBUG_MODE) {Serial.println("Request received");}
+		if (DEBUG_MODE) {Serial.println(F("Request received"));}
 
 		// Handle request
 		result = handle_proto(client,true,0);
@@ -428,7 +428,7 @@ void handle_callback(PubSubClient& client, char* topic, byte* payload, unsigned 
   String msgString = String(mqtt_msg);
 
   if (DEBUG_MODE) {
-    Serial.print("Received message via MQTT: ");
+    Serial.print(F("Received message via MQTT: "));
     Serial.println(msgString);
   }
 
@@ -444,7 +444,7 @@ void handle_callback(PubSubClient& client, char* topic, byte* payload, unsigned 
 
   // Send response
   if (DEBUG_MODE) {
-    Serial.print("Sending message via MQTT: ");
+    Serial.print(F("Sending message via MQTT: "));
     Serial.println(answer);
   }
   client.publish(out_topic, answer);
@@ -527,7 +527,7 @@ void process(char c){
          pin = answer.toInt();
        }
        if (DEBUG_MODE) {
-        Serial.print("Selected pin: ");
+        Serial.print(F("Selected pin: "));
         Serial.println(pin);
        }
        pin_selected = true;
@@ -561,13 +561,13 @@ void process(char c){
    }
 
      // Digital command received ?
-     if (answer.startsWith("digital")) {command = 'd';}
+     if (answer.startsWith(F("digital"))) {command = 'd';}
 
      // Mode command received ?
-     if (answer.startsWith("mode")) {command = 'm';}
+     if (answer.startsWith(F("mode"))) {command = 'm';}
 
      // Analog command received ?
-     if (answer.startsWith("analog")) {command = 'a';}
+     if (answer.startsWith(F("analog"))) {command = 'a';}
 
      // Variable or function request received ?
      if (command == 'u') {
@@ -635,7 +635,7 @@ void process(char c){
            uint8_t header_length = strlen(functions_names[i]);
            if (answer.substring(header_length, header_length + 1) == "?") {
              uint8_t footer_start = answer.length();
-             if (answer.endsWith(" HTTP/"))
+             if (answer.endsWith(F(" HTTP/")))
                footer_start -= 6; // length of " HTTP/"
              arguments = answer.substring(header_length + 8, footer_start);
            }
