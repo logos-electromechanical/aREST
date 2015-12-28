@@ -602,7 +602,7 @@ void process(char c){
        }
        #endif
 
-       // Check if variable name is in float array (Mega & ESP8266 only)
+       // Check if variable name is in string array (Mega & ESP8266 only)
        #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
        for (uint8_t i = 0; i < string_variables_index; i++){
          if(answer.startsWith(string_variables_names[i])) {
@@ -618,7 +618,7 @@ void process(char c){
        }
        #endif
 
-       // Check if function name is in array
+       // Check if function name is in either array
        for (uint8_t i = 0; i < functions_index; i++){
          if(answer.startsWith(functions_names[i])) {
 
@@ -633,6 +633,28 @@ void process(char c){
            // Get command
            arguments = "";
            uint8_t header_length = strlen(functions_names[i]);
+           if (answer.substring(header_length, header_length + 1) == "?") {
+             uint8_t footer_start = answer.length();
+             if (answer.endsWith(F(" HTTP/")))
+               footer_start -= 6; // length of " HTTP/"
+             arguments = answer.substring(header_length + 8, footer_start);
+           }
+         }
+       }
+       for (uint8_t i = 0; i < functions_buf_index; i++){
+         if(answer.startsWith(functions_buf_names[i])) {
+
+           // End here
+           pin_selected = true;
+           state = 'x';
+
+           // Set state
+           command = 'F';
+           value = i;
+
+           // Get command
+           arguments = "";
+           uint8_t header_length = strlen(functions_buf_names[i]);
            if (answer.substring(header_length, header_length + 1) == "?") {
              uint8_t footer_start = answer.length();
              if (answer.endsWith(F(" HTTP/")))
@@ -911,6 +933,23 @@ bool send_command(bool headers) {
     }
 	result = true;
   }
+  if (command == 'F' && (enable_byte & AREST_ENB_FUNCTION)) {
+	  
+	// Execute function
+    uint8_t result = functions_buf[value](arguments, buffer, OUTPUT_BUFFER_SIZE, strlen(buffer));
+    
+    // Start response...
+    if (!LIGHTWEIGHT) {
+     addToBuffer(F("{\"return_value\": "));
+     addToBuffer(result);
+     addToBuffer(F(", "));
+     //addToBuffer(F(", \"message\": \""));
+     //addToBuffer(functions_names[value]);
+     //addToBuffer(F(" executed\", "));
+    }
+	
+	result = true;
+  }
 
   if (command == 'r' || command == 'u') {
     root_answer();
@@ -1081,6 +1120,13 @@ void function(char * function_name, int (*f)(String)){
   functions_names[functions_index] = function_name;
   functions[functions_index] = f;
   functions_index++;
+}
+
+void function(char * function_name, int (*f)(String, char *, int, int)){
+
+  functions_buf_names[functions_buf_index] = function_name;
+  functions_buf[functions_buf_index] = f;
+  functions_buf_index++;
 }
 
 // Set device ID
@@ -1329,10 +1375,14 @@ private:
   char * string_variables_names[NUMBER_VARIABLES];
   #endif
 
-  // Functions array
+  // Functions arrays
   uint8_t functions_index;
   int (*functions[NUMBER_FUNCTIONS])(String);
   char * functions_names[NUMBER_FUNCTIONS];
+  
+  uint8_t functions_buf_index;
+  int (*functions_buf[NUMBER_FUNCTIONS])(String, char*, int, int);
+  char * functions_buf_names[NUMBER_FUNCTIONS];
 
 };
 
