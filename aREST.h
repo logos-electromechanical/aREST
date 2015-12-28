@@ -641,28 +641,6 @@ void process(char c){
            }
          }
        }
-       for (uint8_t i = 0; i < functions_buf_index; i++){
-         if(answer.startsWith(functions_buf_names[i])) {
-
-           // End here
-           pin_selected = true;
-           state = 'x';
-
-           // Set state
-           command = 'F';
-           value = i;
-
-           // Get command
-           arguments = "";
-           uint8_t header_length = strlen(functions_buf_names[i]);
-           if (answer.substring(header_length, header_length + 1) == "?") {
-             uint8_t footer_start = answer.length();
-             if (answer.endsWith(F(" HTTP/")))
-               footer_start -= 6; // length of " HTTP/"
-             arguments = answer.substring(header_length + 8, footer_start);
-           }
-         }
-       }
 
        // If the command is "id", return device id, name and status
        if ( (answer[0] == 'i' && answer[1] == 'd') ){
@@ -918,36 +896,24 @@ bool send_command(bool headers) {
 
   // Function selected
   if (command == 'f' && (enable_byte & AREST_ENB_FUNCTION)) {
-
+	  
+    // Start response...
+    if (!LIGHTWEIGHT) { 
+	  addToBuffer(F("{"));
+	}
+  
     // Execute function
     uint8_t result = functions[value](arguments);
 
     // Send feedback to client
     if (!LIGHTWEIGHT) {
-     addToBuffer(F("{\"return_value\": "));
+     addToBuffer(F("\"return_value\": "));
      addToBuffer(result);
      addToBuffer(F(", "));
      //addToBuffer(F(", \"message\": \""));
      //addToBuffer(functions_names[value]);
      //addToBuffer(F(" executed\", "));
     }
-	result = true;
-  }
-  if (command == 'F' && (enable_byte & AREST_ENB_FUNCTION)) {
-	  
-	// Execute function
-    uint8_t result = functions_buf[value](arguments, buffer, OUTPUT_BUFFER_SIZE, strlen(buffer));
-    
-    // Start response...
-    if (!LIGHTWEIGHT) {
-     addToBuffer(F("{\"return_value\": "));
-     addToBuffer(result);
-     addToBuffer(F(", "));
-     //addToBuffer(F(", \"message\": \""));
-     //addToBuffer(functions_names[value]);
-     //addToBuffer(F(" executed\", "));
-    }
-	
 	result = true;
   }
 
@@ -1122,13 +1088,6 @@ void function(char * function_name, int (*f)(String)){
   functions_index++;
 }
 
-void function(char * function_name, int (*f)(String, char *, int, int)){
-
-  functions_buf_names[functions_buf_index] = function_name;
-  functions_buf[functions_buf_index] = f;
-  functions_buf_index++;
-}
-
 // Set device ID
 void set_id(char *device_id){
 
@@ -1205,6 +1164,24 @@ void addToBuffer(String toAdd){
 
 // Add to output buffer
 void addToBuffer(uint16_t toAdd){
+
+  char number[10];
+  itoa(toAdd,number,10);
+
+  addToBuffer(number);
+}
+
+// Add to output buffer
+void addToBuffer(long toAdd){
+
+  char number[20];
+  sprintf(number,"%d",toAdd);
+
+  addToBuffer(number);
+}
+
+// Add to output buffer
+void addToBuffer(uint8_t toAdd){
 
   char number[10];
   itoa(toAdd,number,10);
@@ -1375,14 +1352,10 @@ private:
   char * string_variables_names[NUMBER_VARIABLES];
   #endif
 
-  // Functions arrays
+  // Functions array
   uint8_t functions_index;
   int (*functions[NUMBER_FUNCTIONS])(String);
   char * functions_names[NUMBER_FUNCTIONS];
-  
-  uint8_t functions_buf_index;
-  int (*functions_buf[NUMBER_FUNCTIONS])(String, char*, int, int);
-  char * functions_buf_names[NUMBER_FUNCTIONS];
 
 };
 
