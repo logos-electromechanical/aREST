@@ -92,7 +92,7 @@
 
 // Debug mode
 #ifndef DEBUG_MODE
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 #endif
 
 // Use light answer mode
@@ -353,7 +353,7 @@ bool handle(HardwareSerial& serial){
 		result = handle_proto(serial,false,1);
 
 		// Answer
-		sendBuffer(serial,25,1);
+		sendBuffer(serial,0,1);
 
 		// Reset variables for the next command
 		reset_status();
@@ -575,7 +575,7 @@ void process(char c){
        // Check if variable name is in int array
        for (uint8_t i = 0; i < variables_index; i++){
          if(answer.startsWith(int_variables_names[i])) {
-
+			if (DEBUG_MODE) {Serial.println(F("Found integer variable"));}
            // End here
            pin_selected = true;
            state = 'x';
@@ -590,7 +590,7 @@ void process(char c){
        #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
        for (uint8_t i = 0; i < float_variables_index; i++){
          if(answer.startsWith(float_variables_names[i])) {
-
+			if (DEBUG_MODE) {Serial.println(F("Found float variable"));}
            // End here
            pin_selected = true;
            state = 'x';
@@ -606,7 +606,7 @@ void process(char c){
        #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
        for (uint8_t i = 0; i < string_variables_index; i++){
          if(answer.startsWith(string_variables_names[i])) {
-
+			if (DEBUG_MODE) {Serial.println(F("Found string variable"));}
            // End here
            pin_selected = true;
            state = 'x';
@@ -621,7 +621,7 @@ void process(char c){
        // Check if function name is in either array
        for (uint8_t i = 0; i < functions_index; i++){
          if(answer.startsWith(functions_names[i])) {
-
+			if (DEBUG_MODE) {Serial.println(F("Found function"));}
            // End here
            pin_selected = true;
            state = 'x';
@@ -644,7 +644,7 @@ void process(char c){
 
        // If the command is "id", return device id, name and status
        if ( (answer[0] == 'i' && answer[1] == 'd') ){
-
+			if (DEBUG_MODE) {Serial.println(F("Found id request"));}
            // Set state
            command = 'i';
 
@@ -939,9 +939,9 @@ bool send_command(bool headers) {
 
      if (command != 'r' && command != 'u') {
        addToBuffer(F("\"id\": \""));
-       addToBuffer(id);
+       addToBuffer(this->id);
        addToBuffer(F("\", \"name\": \""));
-       addToBuffer(name);
+       addToBuffer(this->name);
        addToBuffer(F("\", \"connected\": true}\r\n"));
      }
    }
@@ -1091,18 +1091,16 @@ void function(char * function_name, int (*f)(String)){
 // Set device ID
 void set_id(char *device_id){
 
-  strcpy(id,device_id);
-
+  id = String(device_id);
+  if (DEBUG_MODE) {Serial.print(F("Device id: ")); Serial.println(id);}
   #if defined(PubSubClient_h)
-  char bufferone[5];
-  strcpy(bufferone, "_in");
-  strcpy(in_topic, id);
-  strcat(in_topic, bufferone);
+  String bufone = id;
+  bufone += "_in";
+  bufone.toCharArray(in_topic, 15);
 
-  char bufferbis[5];
-  strcpy(bufferbis, "_out");
-  strcpy(out_topic, id);
-  strcat(out_topic, bufferbis);
+  String bufbis = id;
+  bufbis += "_out";
+  bufbis.toCharArray(out_topic, 15);
   #endif
 
 }
@@ -1110,19 +1108,20 @@ void set_id(char *device_id){
 // Set device name
 void set_name(char *device_name){
 
-  strcpy(name, device_name);
+  name = String(device_name);
+  if (DEBUG_MODE) {Serial.print(F("Device name: ")); Serial.println(name);}
 }
 
 // Set device name
 void set_name(String device_name){
 
-  device_name.toCharArray(name, NAME_SIZE);
+  name = device_name;
 }
 
 // Set device ID
 void set_id(String device_id){
 
-  device_id.toCharArray(id, NAME_SIZE);
+  id = device_id;
 }
 
 // Remove last char from buffer
@@ -1136,7 +1135,7 @@ void removeLastBufferChar() {
 void addToBuffer(char * toAdd){
 
   if (DEBUG_MODE) {
-    Serial.print(F("Added to buffer: "));
+    Serial.print(F("Added to buffer (char*): "));
     Serial.println(toAdd);
   }
 
@@ -1151,7 +1150,7 @@ void addToBuffer(char * toAdd){
 void addToBuffer(String toAdd){
 
   if (DEBUG_MODE) {
-    Serial.print(F("Added to buffer: "));
+    Serial.print(F("Added to buffer (String): "));
     Serial.println(toAdd);
   }
 
@@ -1164,38 +1163,38 @@ void addToBuffer(String toAdd){
 
 // Add to output buffer
 void addToBuffer(uint16_t toAdd){
+  
+  //char number[10];
+  //itoa(toAdd,number,10);
 
-  char number[10];
-  itoa(toAdd,number,10);
-
-  addToBuffer(number);
+  addToBuffer(String(toAdd));
 }
 
 // Add to output buffer
 void addToBuffer(long toAdd){
 
-  char number[20];
-  sprintf(number,"%d",toAdd);
+  //char number[20];
+  //sprintf(number,"%d",toAdd);
 
-  addToBuffer(number);
+  addToBuffer(String(toAdd));
 }
 
 // Add to output buffer
 void addToBuffer(uint8_t toAdd){
 
-  char number[10];
-  itoa(toAdd,number,10);
+  //char number[10];
+  //itoa(toAdd,number,10);
 
-  addToBuffer(number);
+  addToBuffer(String(toAdd));
 }
 
 // Add to output buffer
 void addToBuffer(int toAdd){
 
-  char number[10];
-  itoa(toAdd,number,10);
+  //char number[10];
+  //itoa(toAdd,number,10);
 
-  addToBuffer(number);
+  addToBuffer(String(toAdd));
 }
 
 // Add to output buffer (Mega & ESP only)
@@ -1220,10 +1219,10 @@ void addToBuffer(double toAdd) {
 // Add to output buffer
 void addToBuffer(const __FlashStringHelper *toAdd){
 
-  // if (DEBUG_MODE) {
-  //   Serial.print(F("Added to buffer: "));
-  //   Serial.println(toAdd);
-  // }
+  if (DEBUG_MODE) {
+     Serial.print(F("Added to buffer (F): "));
+     Serial.println(toAdd);
+  }
 
   uint8_t idx = 0;
 
@@ -1312,8 +1311,8 @@ private:
   // enable byte
   uint8_t enable_byte = 0xff;
 
-  char name[NAME_SIZE];
-  char id[ID_SIZE];
+  String name;
+  String id;
   String arguments;
 
   // Output buffer
