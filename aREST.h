@@ -907,6 +907,7 @@ bool send_command(bool headers) {
 
     // Send feedback to client
     if (!LIGHTWEIGHT) {
+     addToBuffer(F(", "));
      addToBuffer(F("\"return_value\": "));
      addToBuffer(result);
      addToBuffer(F(", "));
