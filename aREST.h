@@ -903,13 +903,13 @@ bool send_command(bool headers) {
 	}
   
     // Execute function
-    uint8_t result = functions[value](arguments);
+    uint8_t retVal = functions[value](arguments);
 
     // Send feedback to client
     if (!LIGHTWEIGHT) {
      addToBuffer(F(", "));
      addToBuffer(F("\"return_value\": "));
-     addToBuffer(result);
+     addToBuffer(retVal);
      addToBuffer(F(", "));
      //addToBuffer(F(", \"message\": \""));
      //addToBuffer(functions_names[value]);
