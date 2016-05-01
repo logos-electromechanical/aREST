@@ -92,7 +92,7 @@
 
 // Debug mode
 #ifndef DEBUG_MODE
-#define DEBUG_MODE 1
+#define DEBUG_MODE 0
 #endif
 
 // Use light answer mode
@@ -332,10 +332,10 @@ bool handle(Serial_& serial){
 	if (serial.available()) {
 
 		// Handle request
-		result = handle_proto(serial,false,1);
+		result = handle_proto(serial,false,0);
 
 		// Answer
-		sendBuffer(serial,25,1);
+		sendBuffer(serial,25,0);
 
 		// Reset variables for the next command
 		reset_status();
@@ -350,10 +350,10 @@ bool handle(HardwareSerial& serial){
 	if (serial.available()) {
 
 		// Handle request
-		result = handle_proto(serial,false,1);
+		result = handle_proto(serial,false,0);
 
 		// Answer
-		sendBuffer(serial,0,1);
+		sendBuffer(serial,0,0);
 
 		// Reset variables for the next command
 		reset_status();
@@ -381,6 +381,7 @@ bool handle_proto(char * string) {
     char c = string[i];
     answer = answer + c;
 
+	
     // Process data
     process(c);
 
@@ -399,10 +400,10 @@ bool handle_proto(T& serial, bool headers, uint8_t read_delay)
 
     // Get the server answer
     char c = serial.read();
-    delay(read_delay);
+    if (read_delay) delay(read_delay);
     answer = answer + c;
-    //if (DEBUG_MODE) {Serial.print(c);}
-
+    if (DEBUG_MODE) {Serial.print(c);}
+	
     // Process data
     process(c);
 
@@ -572,55 +573,9 @@ void process(char c){
      // Variable or function request received ?
      if (command == 'u') {
 
-       // Check if variable name is in int array
-       for (uint8_t i = 0; i < variables_index; i++){
-         if(answer.startsWith(int_variables_names[i])) {
-			if (DEBUG_MODE) {Serial.println(F("Found integer variable"));}
-           // End here
-           pin_selected = true;
-           state = 'x';
-
-           // Set state
-           command = 'v';
-           value = i;
-         }
-       }
-
-       // Check if variable name is in float array (Mega & ESP8266 only)
-       #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
-       for (uint8_t i = 0; i < float_variables_index; i++){
-         if(answer.startsWith(float_variables_names[i])) {
-			if (DEBUG_MODE) {Serial.println(F("Found float variable"));}
-           // End here
-           pin_selected = true;
-           state = 'x';
-
-           // Set state
-           command = 'l';
-           value = i;
-         }
-       }
-       #endif
-
-       // Check if variable name is in string array (Mega & ESP8266 only)
-       #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
-       for (uint8_t i = 0; i < string_variables_index; i++){
-         if(answer.startsWith(string_variables_names[i])) {
-			if (DEBUG_MODE) {Serial.println(F("Found string variable"));}
-           // End here
-           pin_selected = true;
-           state = 'x';
-
-           // Set state
-           command = 's';
-           value = i;
-         }
-       }
-       #endif
-
-       // Check if function name is in either array
+       // Check if function name is in the function array
        for (uint8_t i = 0; i < functions_index; i++){
-         if(answer.startsWith(functions_names[i])) {
+         if(fastStringCompare(answer, functions_names[i])) {
 			if (DEBUG_MODE) {Serial.println(F("Found function"));}
            // End here
            pin_selected = true;
@@ -641,6 +596,52 @@ void process(char c){
            }
          }
        }
+
+       // Check if variable name is in int array
+       for (uint8_t i = 0; i < variables_index; i++){
+         if(fastStringCompare(answer, int_variables_names[i])) {
+			if (DEBUG_MODE) {Serial.println(F("Found integer variable"));}
+           // End here
+           pin_selected = true;
+           state = 'x';
+
+           // Set state
+           command = 'v';
+           value = i;
+         }
+       }
+
+       // Check if variable name is in float array (Mega & ESP8266 only)
+       #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
+       for (uint8_t i = 0; i < float_variables_index; i++){
+         if(fastStringCompare(answer, float_variables_names[i])) {
+			if (DEBUG_MODE) {Serial.println(F("Found float variable"));}
+           // End here
+           pin_selected = true;
+           state = 'x';
+
+           // Set state
+           command = 'l';
+           value = i;
+         }
+       }
+       #endif
+
+       // Check if variable name is in string array (Mega & ESP8266 only)
+       #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(CORE_WILDFIRE) || !defined(ADAFRUIT_CC3000_H)
+       for (uint8_t i = 0; i < string_variables_index; i++){
+         if(fastStringCompare(answer, string_variables_names[i])) {
+			if (DEBUG_MODE) {Serial.println(F("Found string variable"));}
+           // End here
+           pin_selected = true;
+           state = 'x';
+
+           // Set state
+           command = 's';
+           value = i;
+         }
+       }
+       #endif
 
        // If the command is "id", return device id, name and status
        if ( (answer[0] == 'i' && answer[1] == 'd') ){
@@ -1299,6 +1300,17 @@ void setEnable(uint8_t _enable) {
 
 uint8_t getEnable (void) {
 	return enable_byte;
+}
+
+bool fastStringCompare (String s1, String s2) {
+	bool result = true;
+	int cnt = 0;
+	if (s2.length() > s1.length()) return false;
+	while (result && (cnt < s2.length())) {
+		result = (s1[cnt] == s2[cnt]);
+		cnt++;
+	}
+	return result;
 }
 
 private:
