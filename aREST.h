@@ -567,10 +567,10 @@ bool handle(HardwareSerial& serial){
 	if (serial.available()) {
 
 		// Handle request
-		result = handle_proto(serial,false,0);
+		result = handle_proto(serial,false,1);
 
 		// Answer
-		sendBuffer(serial,0,0);
+		sendBuffer(serial,100,0);
 
 		// Reset variables for the next command
 		reset_status();
@@ -860,6 +860,10 @@ void process(char c){
 		Serial.print("!");
        // Check if function name is in the function array
        if (!foundFlag) for (uint8_t i = 0; i < functions_index; i++){
+		   if (DEBUG_MODE) {
+			   Serial.println(F("Comparing function"));
+			   Serial.println(functions_names[i]);
+		   }
          if(fastStringCompare(answer, functions_names[i])) {
 		   foundFlag = true;
 		   if (DEBUG_MODE) {Serial.println(F("Found function"));}
@@ -1586,7 +1590,7 @@ void sendBuffer(T& client, uint8_t chunkSize, uint8_t wait_time) {
 
   // Send all of it
   if (chunkSize == 0) {
-    client.print(buffer);
+	client.print(buffer);
   }
 
   // Send chunk by chunk
